@@ -1,0 +1,5 @@
+import C from 'clipper-lib'
+import type {Point} from './extraction'
+export type Piece={id:string;name:string;paths:Point[][];x:number;y:number;rotation:number;sx:number;sy:number;visible:boolean;sources:string[]}
+export function transformed(p:Piece){const a=p.rotation*Math.PI/180;return p.paths.map(r=>r.map(v=>({x:p.x+v.x*p.sx*Math.cos(a)-v.y*p.sy*Math.sin(a),y:p.y+v.x*p.sx*Math.sin(a)+v.y*p.sy*Math.cos(a)})))}
+export function combine(pieces:Piece[],operation:'union'|'difference'|'intersection'){const paths=(p:Piece)=>transformed(p).map(r=>r.map(v=>({X:Math.round(v.x*1000),Y:Math.round(v.y*1000)})));let result=paths(pieces[0]);for(const piece of pieces.slice(1)){const c=new C.Clipper(),solution:any[]=[];c.AddPaths(result,C.PolyType.ptSubject,true);c.AddPaths(paths(piece),C.PolyType.ptClip,true);c.Execute(C.ClipType[{union:'ctUnion',difference:'ctDifference',intersection:'ctIntersection'}[operation]],solution,C.PolyFillType.pftEvenOdd,C.PolyFillType.pftEvenOdd);result=solution}return result.map((r:any[])=>r.map(v=>({x:v.X/1000,y:v.Y/1000}))) as Point[][]}

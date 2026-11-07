@@ -1,0 +1,15 @@
+import {useRef} from 'react'
+import {transformed,type Piece} from './compositionGeometry'
+type P={x:number;y:number}
+export function pivotOf(piece:Piece){const p=transformed(piece).flat();return {x:(Math.min(...p.map(v=>v.x))+Math.max(...p.map(v=>v.x)))/2,y:(Math.min(...p.map(v=>v.y))+Math.max(...p.map(v=>v.y)))/2}}
+export function manipulate(piece:Piece,handle:string,start:P,end:P,pivot:P):Piece{const dx=end.x-start.x,dy=end.y-start.y,angle=Math.atan2(end.y-pivot.y,end.x-pivot.x)-Math.atan2(start.y-pivot.y,start.x-pivot.x),factor=Math.max(.05,Math.min(20,Math.hypot(end.x-pivot.x,end.y-pivot.y)/Math.max(1,Math.hypot(start.x-pivot.x,start.y-pivot.y))));return {...piece,x:0,y:0,rotation:0,sx:1,sy:1,paths:transformed(piece).map(r=>r.map(v=>{const x=v.x-pivot.x,y=v.y-pivot.y;return handle==='rotate'?{x:pivot.x+x*Math.cos(angle)-y*Math.sin(angle),y:pivot.y+x*Math.sin(angle)+y*Math.cos(angle)}:handle==='scale'?{x:pivot.x+x*factor,y:pivot.y+y*factor}:{x:v.x+(handle==='y'?0:dx),y:v.y+(handle==='x'?0:dy)}}))}}
+export default function Gumball({piece,zoom,coords,onChange,onCommit}:{piece:Piece;zoom:number;coords:(e:React.PointerEvent)=>P;onChange:(p:Piece)=>void;onCommit:(p:Piece)=>void}){
+ const pivot=pivotOf(piece),size=60/zoom,drag=useRef<{piece:Piece;handle:string;start:P;pivot:P;latest:Piece}|null>(null);const handle=(name:string)=>({'data-handle':name,style:{cursor:name==='rotate'?'crosshair':name==='scale'?'nwse-resize':'move'}});
+ return <g aria-label={'Transform '+piece.name} onPointerDown={e=>{const h=(e.target as Element).getAttribute('data-handle');if(!h)return;e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);drag.current={piece,handle:h,start:coords(e),pivot,latest:piece}}} onPointerMove={e=>{if(!drag.current)return;e.stopPropagation();const d=drag.current;d.latest=manipulate(d.piece,d.handle,d.start,coords(e),d.pivot);onChange(d.latest)}} onPointerUp={e=>{e.stopPropagation();if(drag.current){onCommit(drag.current.latest);drag.current=null}}} onPointerCancel={()=>{if(drag.current){onChange(drag.current.piece);drag.current=null}}}>
+ <circle {...handle('rotate')} cx={pivot.x} cy={pivot.y} r={size*.75} fill="none" stroke="#ffd36b" strokeWidth={3/zoom}><title>Drag ring to rotate</title></circle>
+ <path d={`M${pivot.x},${pivot.y}h${size}m${-8/zoom},${-5/zoom}l${8/zoom},${5/zoom}l${-8/zoom},${5/zoom}`} fill="none" stroke="#ff6297" strokeWidth={3/zoom} pointerEvents="none"/>
+ <path d={`M${pivot.x},${pivot.y}v${-size}m${-5/zoom},${8/zoom}l${5/zoom},${-8/zoom}l${5/zoom},${8/zoom}`} fill="none" stroke="#84e5ba" strokeWidth={3/zoom} pointerEvents="none"/>
+ <circle {...handle('x')} cx={pivot.x+size} cy={pivot.y} r={7/zoom} fill="#ff6297"><title>Move X</title></circle><circle {...handle('y')} cx={pivot.x} cy={pivot.y-size} r={7/zoom} fill="#84e5ba"><title>Move Y</title></circle>
+ <rect {...handle('scale')} x={pivot.x+size*.7} y={pivot.y+size*.7} width={11/zoom} height={11/zoom} fill="#8ecfff"><title>Uniform scale</title></rect><rect {...handle('move')} x={pivot.x-6/zoom} y={pivot.y-6/zoom} width={12/zoom} height={12/zoom} fill="white" stroke="#27282d"><title>Move freely</title></rect>
+ </g>
+}
